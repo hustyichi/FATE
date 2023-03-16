@@ -117,12 +117,17 @@ class LoggerFactory(object):
                     LoggerFactory.global_handler_dict[logger_name_key] = handler
         return LoggerFactory.global_handler_dict[logger_name_key]
 
+    # 生成输出至文件的 handler，方便外层将日志输出至不同文件
+    # 优先使用 log_type 进行文件命名，没有的情况下根据 class_name 进行文件命名，无法确定的情况下将日志输出至终端
     @staticmethod
     def get_handler(class_name, level=None, log_dir=None, log_type=None, job_id=None):
+        #  优先根据 log_type 进行日志命名
         if not log_type:
+            # 没办法确定输出目录，使用 StreamHandler 输出至终端
             if not LoggerFactory.LOG_DIR or not class_name:
                 return logging.StreamHandler()
 
+            # 没有 log_type 时，根据 class_name 进行文件命名
             if not log_dir:
                 log_file = os.path.join(LoggerFactory.LOG_DIR, "{}.log".format(class_name))
             else:
@@ -130,11 +135,15 @@ class LoggerFactory(object):
         else:
             log_file = os.path.join(log_dir, "fate_flow_{}.log".format(
                 log_type) if level == LoggerFactory.LEVEL else 'fate_flow_{}_error.log'.format(log_type))
+
+        # 包含 job_id 的情况下将 job_id 加入日志
         job_id = job_id or os.getenv("FATE_JOB_ID")
         if job_id:
             formatter = logging.Formatter(LoggerFactory.LOG_FORMAT.replace("jobId", job_id))
         else:
             formatter = logging.Formatter(LoggerFactory.LOG_FORMAT.replace("jobId", "Server"))
+
+        # 最终使用 TimedRotatingFileHandler 实现按天的日志搜集
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         if LoggerFactory.log_share:
             handler = ROpenHandler(log_file,
