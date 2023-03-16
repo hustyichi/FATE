@@ -83,6 +83,7 @@ class LoggerFactory(object):
                 LoggerFactory.assemble_global_handler(logger)
                 LoggerFactory.logger_dict[className] = logger, _handler
 
+    # 创建 logger
     @staticmethod
     def new_logger(name):
         logger = logging.getLogger(name)
@@ -164,6 +165,7 @@ class LoggerFactory(object):
         handler.setFormatter(formatter)
         return handler
 
+    # 初始化 logger，创建 logger，并增加对应的 handler，输出日志至文件中
     @staticmethod
     def init_logger(class_name):
         with LoggerFactory.lock:
@@ -203,6 +205,7 @@ def setLevel(level):
     LoggerFactory.LEVEL = level
 
 
+# 根据 className 初始化 logger
 def getLogger(className=None, useLevelFile=False):
     if className is None:
         frame = inspect.stack()[1]
