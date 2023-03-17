@@ -23,6 +23,7 @@ from threading import RLock
 
 from fate_arch.common import file_utils
 
+# Logger 基础方法，提供必要的基础能力
 
 class LoggerFactory(object):
     TYPE = "FILE"
