@@ -182,6 +182,7 @@ class LoggerFactory(object):
             LoggerFactory.assemble_global_handler(logger)
             return logger, handler
 
+    # 根据日志等级输出输出至特定文件，目前主要是输出至 DEBUG.log INFO.log WARNING.log ERROR.log
     @staticmethod
     def assemble_global_handler(logger):
         if LoggerFactory.LOG_DIR:
