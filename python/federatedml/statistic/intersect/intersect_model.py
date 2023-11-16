@@ -247,6 +247,8 @@ class IntersectModelBase(ModelBase):
                 intersect_data = match_data
                 if self.model_param.run_preprocess:
                     intersect_data = self.run_preprocess(match_data)
+
+                # 实际执行获得交集 ids
                 self.intersect_ids = self.intersection_obj.run_intersect(intersect_data)
                 if self.intersect_ids:
                     self.match_id_intersect_num = self.intersect_ids.count()
@@ -266,6 +268,8 @@ class IntersectModelBase(ModelBase):
                 intersect_data = data
                 if self.model_param.run_preprocess:
                     intersect_data = self.run_preprocess(data)
+
+                # 实际执行获得交集 ids
                 self.intersect_ids = self.intersection_obj.run_intersect(intersect_data)
                 if self.intersect_ids:
                     self.match_id_intersect_num = self.intersect_ids.count()

@@ -22,6 +22,7 @@ from fate_arch.session import computing_session
 from fate_arch.abc import CTableABC
 
 
+# 机器学习 Tensor 同态加密封装类
 class PaillierTensor(object):
     def __init__(self, obj, partitions=1):
         if obj is None:

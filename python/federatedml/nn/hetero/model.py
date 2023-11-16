@@ -118,6 +118,7 @@ class HeteroNNGuestModel(HeteroNNModel):
         if self.top_model is not None:  # warmstart case
             self.top_model.label_num = label_num
 
+    # Guest 模型训练
     def train(self, x, y, epoch, batch_idx):
 
         if self.batch_size == -1:
@@ -125,31 +126,42 @@ class HeteroNNGuestModel(HeteroNNModel):
 
         global_seed(self.seed)
 
+        # 构造全局模型
         if self.top_model is None:
             self._build_top_model()
             LOGGER.debug('top model is {}'.format(self.top_model))
 
+        # 构造本地模型，如果 Guest 没有数据，可以不构造本地模型
         if not self.is_empty:
             if self.bottom_model is None:
                 self._build_bottom_model()
                 LOGGER.debug('bottom model is {}'.format(self.bottom_model))
             self.bottom_model.train_mode(True)
+
+            # Guest 本地模型前向传播生成对应输出
             guest_bottom_output = self.bottom_model.forward(x)
         else:
             guest_bottom_output = None
 
+        # 构造传输 model，用于与 Host 之间传输数据
         if self.interactive_model is None:
             self._build_interactive_model()
 
+        # 将 Guest 本地模型输出与 Host 本地模型的输出合并
         interactive_output = self.interactive_model.forward(
             x=guest_bottom_output, epoch=epoch, batch=batch_idx, train=True)
+
         self.top_model.train_mode(True)
+        # 全局模型训练并获取反向传播的梯度
         selective_ids, gradients, loss = self.top_model.train_and_get_backward_gradient(
             interactive_output, y)
+
+        # 将 Host 对应的梯度传递给 Host
         interactive_layer_backward = self.interactive_model.backward(
             error=gradients, epoch=epoch, batch=batch_idx, selective_ids=selective_ids)
 
         if not self.is_empty:
+            # Guest 本地模型梯度反向传播
             self.bottom_model.backward(
                 x, interactive_layer_backward, selective_ids)
 
@@ -408,13 +420,17 @@ class HeteroNNHostModel(HeteroNNModel):
 
         return model_param
 
+    # Host 本地模型训练，纵向联邦中 Host 方没有 y 标签
     def train(self, x, epoch, batch_idx):
 
+        # 构造本地模型
         if self.bottom_model is None:
             global_seed(self.seed)
             self._build_bottom_model()
             if self.batch_size == -1:
                 self.batch_size = x.shape[0]
+
+            # 用于构造传输 model，用于与 Guest 传输数据
             self._build_interactive_model()
             if self.selector:
                 self.bottom_model.set_backward_select_strategy()
@@ -422,14 +438,18 @@ class HeteroNNHostModel(HeteroNNModel):
                 self.interactive_model.set_backward_select_strategy()
 
         self.bottom_model.train_mode(True)
+        # Host 本地模型前向传播得到结果
         host_bottom_output = self.bottom_model.forward(x)
 
+        # Host 将本地模型前向传播结果加密后传递给 Guest
         self.interactive_model.forward(
             host_bottom_output, epoch, batch_idx, train=True)
 
+        # Host 从 Guest 获取反向传播的梯度
         host_gradient, selective_ids = self.interactive_model.backward(
             epoch, batch_idx)
 
+        # 根据反向传播的梯度进行反向传播
         self.bottom_model.backward(x, host_gradient, selective_ids)
 
     def predict(self, x, batch=0):

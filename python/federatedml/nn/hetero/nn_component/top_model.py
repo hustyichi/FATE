@@ -57,6 +57,7 @@ class TopModel(object):
     def train_mode(self, mode):
         self._model.train_mode(mode)
 
+    # 全局模型训练，并获得反向传播的梯度
     def train_and_get_backward_gradient(self, x, y):
 
         LOGGER.debug("top model start to forward propagation")

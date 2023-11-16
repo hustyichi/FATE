@@ -424,6 +424,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
 
         return merge_output
 
+    # 输入 x 为 Guest 本地模型的输出，与 Host 本地的模型的输出进行合并
     def forward(self, x, epoch: int, batch: int, train: bool = True, **kwargs):
 
         self.print_log(
@@ -482,6 +483,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         host_output = self.forward_interactive(
             host_bottom_inputs_tensor, epoch, batch, train)
 
+        # 将 Guest 本地模型输出与 Host 本地模型的输出合并
         if guest_output is not None:
             dense_output_data = host_output + \
                 PaillierTensor(guest_output, partitions=self.partitions)

@@ -80,6 +80,7 @@ class HeteroNNHost(HeteroNNBase):
                 batch_data = batch_data[0]
             self.model.predict(batch_data)
 
+    # Host 模型训练
     def fit(self, data_inst, validate_data=None):
 
         if hasattr(
@@ -112,6 +113,7 @@ class HeteroNNHost(HeteroNNBase):
             self.iter_epoch = cur_epoch
             for batch_idx, batch_data in enumerate(
                     DataLoader(train_ds, batch_size=batch_size)):
+                # 实际的模型训练
                 self.model.train(batch_data, cur_epoch, batch_idx)
 
             self.callback_list.on_epoch_end(cur_epoch)

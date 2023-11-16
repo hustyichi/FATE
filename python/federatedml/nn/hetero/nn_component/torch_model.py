@@ -57,16 +57,19 @@ class TorchNNModel(object):
 
     def init(self, nn_define: dict, optimizer_define: dict = None, loss_fn_define: dict = None):
 
+        # 根据定义构造出对应 torch 深度学习模型
         model = s.recover_sequential_from_dict(nn_define)
         if self.cuda:
             model = model.cuda()
 
+        # 根据定义生成对应的优化器
         if optimizer_define is None:  # default optimizer
             optimizer = optim.SGD(lr=0.01)
         else:
             optimizer: FateTorchOptimizer = s.recover_optimizer_from_dict(optimizer_define)
         opt_inst = optimizer.to_torch_instance(model.parameters())
 
+        # 根据定义生成对应的损失函数
         if loss_fn_define is None:
             loss_fn = backward_loss
         else:
@@ -90,6 +93,7 @@ class TorchNNModel(object):
     def train_mode(self, mode):
         self.model.train(mode)
 
+    # 根据数据集进行单次训练
     def train(self, data_x_and_y):
 
         x, y = data_x_and_y  # this is a tuple
@@ -105,6 +109,7 @@ class TorchNNModel(object):
 
         return loss_val
 
+    # 模型前向传播
     def forward(self, x):
         # will cache tensor with grad, this function is especially for bottom
         # model

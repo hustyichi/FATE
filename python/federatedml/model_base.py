@@ -301,11 +301,13 @@ class ModelBase(object):
             callback_param = getattr(self.model_param, "callback_param")
             self.callback_list.init_callback_list(callback_param)
 
+        # 根据输入获取需要执行方法列表
         running_funcs = self.component_properties.extract_running_rules(
             datasets=cpn_input.datasets, models=cpn_input.models, cpn=self
         )
         LOGGER.debug(f"running_funcs: {running_funcs.todo_func_list}")
         saved_result = []
+        # 依次执行对应的方法列表
         for func, params, save_result, use_previews in running_funcs:
             # for func, params in zip(todo_func_list, todo_func_params):
             if use_previews:

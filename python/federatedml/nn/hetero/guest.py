@@ -90,6 +90,7 @@ class HeteroNNGuest(HeteroNNBase):
         if isinstance(dataset, TableDataset):
             dataset.with_sample_weight = False
 
+    # Guest 模型训练
     def fit(self, data_inst, validate_data=None):
 
         if hasattr(
@@ -146,6 +147,7 @@ class HeteroNNGuest(HeteroNNBase):
             acc_sample_num = 0
 
             for batch_idx, (batch_data, batch_label) in enumerate(data_loader):
+                # 实际的模型训练
                 batch_loss = self.model.train(
                     batch_data, batch_label, cur_epoch, batch_idx)
                 if acc_sample_num + batch_size > len(train_ds):

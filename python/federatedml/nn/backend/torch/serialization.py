@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-
+# 根据神经网络描述生成单层的神经网络
 def recover_layer_from_dict(nn_define, nn_dict):
 
     init_param_dict = copy.deepcopy(nn_define)
@@ -63,6 +63,13 @@ def recover_layer_from_dict(nn_define, nn_dict):
     return layer, class_name
 
 
+# 根据神经网络定义生成对应的神经网络 torch 模型, 使用类似如下所示的形式生成最终的模型
+# Sequential(OrderedDict([
+#     ('conv1', nn.Conv2d(1,20,5)),
+#     ('relu1', nn.ReLU()),
+#     ('conv2', nn.Conv2d(20,64,5)),
+#     ('relu2', nn.ReLU())
+# ]))
 def recover_sequential_from_dict(nn_define):
     nn_define_dict = nn_define
     nn_dict = dict(inspect.getmembers(nn))
@@ -94,6 +101,7 @@ def recover_sequential_from_dict(nn_define):
         return tSeq(add_dict)
 
 
+# 根据描述生成对应的优化器
 def recover_optimizer_from_dict(define_dict):
     opt_dict = dict(inspect.getmembers(optim))
     from federatedml.util import LOGGER
@@ -109,6 +117,7 @@ def recover_optimizer_from_dict(define_dict):
     return opt_class(**param_dict)
 
 
+# 根据描述生成对应的损失函数
 def recover_loss_fn_from_dict(define_dict):
     loss_fn_dict = dict(inspect.getmembers(nn))
     if 'loss_fn' not in define_dict:

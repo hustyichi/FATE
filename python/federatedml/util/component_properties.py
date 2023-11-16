@@ -262,7 +262,9 @@ class ComponentProperties(object):
                                             test_data=None, schema=schema)
         return running_funcs
 
+    # 补充训练与预测流程, 根据数据集区分执行的方法
     def _train_process(self, running_funcs, model, train_data, validate_data, test_data, schema):
+        # 训练集与校验集都存在的情况
         if self.has_train_data and self.has_validate_data:
 
             running_funcs.add_func(model.set_flowid, ['fit'])
@@ -275,6 +277,7 @@ class ComponentProperties(object):
             running_funcs.add_func(model.set_predict_data_schema, [schema],
                                    use_previews=True, save_result=True)
 
+        # 仅有训练集的情况
         elif self.has_train_data:
             running_funcs.add_func(model.set_flowid, ['fit'])
             running_funcs.add_func(model.fit, [train_data])
@@ -284,6 +287,7 @@ class ComponentProperties(object):
             running_funcs.add_func(model.set_predict_data_schema, [schema],
                                    use_previews=True, save_result=True)
 
+        # 不存在训练接，仅有测试集，属于推理阶段
         elif self.has_test_data:
             running_funcs.add_func(model.set_flowid, ['predict'])
             running_funcs.add_func(model.predict, [test_data], save_result=True)
@@ -292,6 +296,7 @@ class ComponentProperties(object):
                                    use_previews=True, save_result=True)
         return running_funcs
 
+    # 根据输入确定所有执行的方法, cpn 为 ModelBase 对象，比较多的方法是实现在 ModelBase 对象上的
     def extract_running_rules(self, datasets, models, cpn):
 
         # train_data, eval_data, data = self.extract_input_data(args)
