@@ -218,6 +218,7 @@ class ModelBase(object):
         # self.need_run = need_run
         self.component_properties.need_run = need_run
 
+    # 注册的 model 最终都是调用 run() 方法完成对应的功能
     def run(self, cpn_input, retry: bool = True):
         self.task_version_id = cpn_input.task_version_id
         self.tracker = cpn_input.tracker
