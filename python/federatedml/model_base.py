@@ -218,7 +218,7 @@ class ModelBase(object):
         # self.need_run = need_run
         self.component_properties.need_run = need_run
 
-    # 注册的 model 最终都是调用 run() 方法完成对应的功能
+    # 注册的 components 最终都是调用 run() 方法完成对应的功能
     def run(self, cpn_input, retry: bool = True):
         self.task_version_id = cpn_input.task_version_id
         self.tracker = cpn_input.tracker
@@ -281,6 +281,7 @@ class ModelBase(object):
     def _export_model(self):
         raise NotImplementedError("_export_model not implemented")
 
+    # componenets 实际执行的流程
     def _run(self, cpn_input) -> None:
         # paramters
         self.model_param.update(cpn_input.parameters)
