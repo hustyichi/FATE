@@ -345,6 +345,7 @@ class HeteroNNHostModel(HeteroNNModel):
         self.batch_size = hetero_nn_param.batch_size
         self.seed = hetero_nn_param.seed
 
+    # 构造本地神经网络模型
     def _build_bottom_model(self):
         if self.bottom_nn_define is None:
             raise ValueError(
@@ -430,7 +431,7 @@ class HeteroNNHostModel(HeteroNNModel):
             if self.batch_size == -1:
                 self.batch_size = x.shape[0]
 
-            # 用于构造传输 model，用于与 Guest 传输数据
+            # 用于构造传输 model，用于与 Guest 传输数据，内部封装同态加密
             self._build_interactive_model()
             if self.selector:
                 self.bottom_model.set_backward_select_strategy()
@@ -449,7 +450,7 @@ class HeteroNNHostModel(HeteroNNModel):
         host_gradient, selective_ids = self.interactive_model.backward(
             epoch, batch_idx)
 
-        # 根据反向传播的梯度进行反向传播
+        # 根据反向传播的梯度更新本地模型
         self.bottom_model.backward(x, host_gradient, selective_ids)
 
     def predict(self, x, batch=0):

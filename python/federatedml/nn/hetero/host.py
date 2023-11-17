@@ -92,6 +92,7 @@ class HeteroNNHost(HeteroNNBase):
                 'reset default partitions is {}'.format(
                     self.default_table_partitions))
 
+        # 构造训练集与验证集
         train_ds = self.prepare_dataset(data_inst, data_type='train')
         if validate_data is not None:
             val_ds = self.prepare_dataset(validate_data, data_type='validate')

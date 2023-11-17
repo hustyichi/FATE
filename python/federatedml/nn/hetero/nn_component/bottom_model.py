@@ -22,6 +22,7 @@ from federatedml.util import LOGGER
 from federatedml.nn.hetero.nn_component.torch_model import TorchNNModel
 
 
+# 本地神经网络模型封装类
 class BottomModel(object):
 
     def __init__(self, optimizer, layer_config):
