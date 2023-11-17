@@ -798,6 +798,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
                 epoch, batch))
         host_input = PaillierTensor(host_input, partitions=self.partitions)
 
+        # 将 Host 本地模型预测的结果发送给 Guest
         encrypted_host_input = host_input.encrypt(self.encrypter)
         self.send_forward_to_guest(
             encrypted_host_input.get_obj(), epoch, batch, train)

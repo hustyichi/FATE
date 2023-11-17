@@ -70,6 +70,7 @@ class HeteroNNHost(HeteroNNBase):
         self.model.set_transfer_variable(self.transfer_variable)
         self.model.set_partition(self.default_table_partitions)
 
+    # Host 模型预测
     def predict(self, data_inst):
 
         ds = self.prepare_dataset(data_inst, data_type='predict')

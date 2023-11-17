@@ -454,7 +454,9 @@ class HeteroNNHostModel(HeteroNNModel):
 
     def predict(self, x, batch=0):
         self.bottom_model.train_mode(False)
+        # 本地模型预测
         guest_bottom_output = self.bottom_model.predict(x)
+
         self.interactive_model.forward(
             guest_bottom_output,
             epoch=self._predict_round,
