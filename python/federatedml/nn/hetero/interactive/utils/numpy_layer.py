@@ -3,7 +3,7 @@ import numpy as np
 from federatedml.util import consts
 from federatedml.secureprotol.paillier_tensor import PaillierTensor
 
-
+# 全连接层
 class NumpyDenseLayer(object):
 
     """
@@ -97,12 +97,14 @@ class NumpyDenseLayer(object):
         return self.forward(*args, **kwargs)
 
 
+# Guest 全连接层
 class NumpyDenseLayerGuest(NumpyDenseLayer):
 
     def __init__(self):
         super(NumpyDenseLayerGuest, self).__init__()
         self.role = consts.GUEST
 
+    # 全连接层的前馈实现，形式类似 x * self.model_weight + self.bias
     def forward(self, x):
 
         if self.empty:
@@ -154,6 +156,7 @@ class NumpyDenseLayerGuest(NumpyDenseLayer):
             self.bias -= np.sum(delta, axis=0) * self.lr
 
 
+# Host 全连接层
 class NumpyDenseLayerHost(NumpyDenseLayer):
 
     """
@@ -191,6 +194,7 @@ class NumpyDenseLayerHost(NumpyDenseLayer):
                 (self.activation_cached, self.activation_input[selective_ids])
             )
 
+    # 全连接层的前馈实现，形式类似 x * self.model_weight + self.bias
     def forward(self, x, encoder=None):
 
         self.input = x

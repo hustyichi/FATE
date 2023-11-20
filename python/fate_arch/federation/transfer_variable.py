@@ -47,6 +47,7 @@ class Variable(object):
 
     __instances: typing.MutableMapping[str, "Variable"] = {}
 
+    # 工厂类，创建一个 name 对应的 Variable
     @classmethod
     def get_or_create(
         cls, name, create_func: typing.Callable[[], "Variable"]
@@ -104,6 +105,7 @@ class Variable(object):
         self._get_gc.clean()
         self._remote_gc.clean()
 
+    # 将数据发送至远端的参与方
     def remote_parties(
         self,
         obj,
@@ -149,6 +151,9 @@ class Variable(object):
         name = self._short_name if self._use_short_name else self._name
 
         timer = profile.federation_remote_timer(name, self._name, tag, local, parties)
+
+        # 调用底层封装的 federation 封装将数据至远端，底层支持不同的方案
+        # Eggroll 对应的封装实现 python/fate_arch/federation/eggroll/_federation.py
         session.federation.remote(
             v=obj, name=name, tag=tag, parties=parties, gc=self._remote_gc
         )
@@ -156,6 +161,7 @@ class Variable(object):
 
         self._remote_gc.gc()
 
+    # 获取其他参与方发送的数据
     def get_parties(
         self,
         parties: Union[typing.List[Party], Party],
@@ -199,6 +205,9 @@ class Variable(object):
 
         name = self._short_name if self._use_short_name else self._name
         timer = profile.federation_get_timer(name, self._name, tag, local, parties)
+
+        # 调用底层封装的 federation 封装将数据至远端，底层支持不同的方案
+        # Eggroll 对应的封装实现 python/fate_arch/federation/eggroll/_federation.py
         rtn = session.federation.get(
             name=name, tag=tag, parties=parties, gc=self._get_gc
         )
@@ -208,6 +217,7 @@ class Variable(object):
 
         return rtn
 
+    # 将数据发送至其他参与方
     def remote(self, obj, role=None, idx=-1, suffix=tuple()):
         """
         send obj to other parties.
@@ -234,14 +244,18 @@ class Variable(object):
                 role = [role]
             parties = party_info.roles_to_parties(role)
 
+        # 通过 idx 指定发送给特定的参与方
         if idx >= 0:
             if idx >= len(parties):
                 raise RuntimeError(
                     f"try to remote to {idx}th party while only {len(parties)} configurated: {parties}, check {self._name}"
                 )
             parties = parties[idx]
+
+        # 实际的数据发送
         return self.remote_parties(obj=obj, parties=parties, suffix=suffix)
 
+    # 获取其他参与方发来的数据
     def get(self, idx=-1, role=None, suffix=tuple()):
         """
         get obj from other parties.
@@ -256,12 +270,15 @@ class Variable(object):
         """
         from fate_arch.session import get_parties
 
+        # 确定要获取的参与方来源列表
         if role is None:
             src_parties = get_parties().roles_to_parties(roles=self._src, strict=False)
         else:
             if isinstance(role, str):
                 role = [role]
             src_parties = get_parties().roles_to_parties(roles=role, strict=False)
+
+        # 实际从其他参与方获取数据
         if isinstance(idx, list):
             rtn = self.get_parties(parties=[src_parties[i] for i in idx], suffix=suffix)
         elif isinstance(idx, int):
@@ -307,6 +324,7 @@ class BaseTransferVariables(object):
         """
         FederationTagNamespace.set_namespace(str(flowid))
 
+    # Variable 创建封装，Variable 根据 name 确定不同情况下的数据输出
     def _create_variable(
         self, name: str, src: typing.Iterable[str], dst: typing.Iterable[str]
     ) -> Variable:

@@ -29,6 +29,7 @@ from fate_arch.common import remote_status
 LOGGER = getLogger()
 
 
+# 联邦多方传输基础类，底层基于 Eggroll
 class Federation(FederationABC):
     def __init__(self, rp_ctx, rs_session_id, party, proxy_endpoint):
         LOGGER.debug(
@@ -67,6 +68,7 @@ class Federation(FederationABC):
         self._rp_ctx.cleanup(name="*", namespace=self._session_id)
 
 
+# 调用 Eggroll 的 push 方法将数据传输给其他参与方
 def _remote(v, name, tag, parties, rsc, gc):
     log_str = f"federation.eggroll.remote.{name}.{tag}{parties})"
     if v is None:
@@ -81,17 +83,22 @@ def _remote(v, name, tag, parties, rsc, gc):
             f"RollPair(namespace={v.get_namespace()}, name={v.get_name()}, partitions={v.get_partitions()})"
         )
         gc.add_gc_action(tag, v, "destroy", {})
+
+        # 实际执行数据传输
         _push_with_exception_handle(rsc, v, name, tag, parties)
         return
 
     if t == _FederationValueType.OBJECT:
         LOGGER.debug(f"[{log_str}]remote object with type: {type(v)}")
+
+        # 实际执行数据传输
         _push_with_exception_handle(rsc, v, name, tag, parties)
         return
 
     raise NotImplementedError(f"t={t}")
 
 
+# 调用 Eggroll 的 pull() 方获取其他参与方发来的数据
 def _get(name, tag, parties, rsc, gc):
     rs = rsc.load(name=name, tag=tag)
     future_map = dict(zip(rs.pull(parties=parties), parties))
@@ -125,6 +132,7 @@ def _get_type(v):
     return _FederationValueType.OBJECT
 
 
+# Eggroll 数据传输基础封装
 def _push_with_exception_handle(rsc, v, name, tag, parties):
     def _remote_exception_re_raise(f, p):
         try:
@@ -154,6 +162,8 @@ def _push_with_exception_handle(rsc, v, name, tag, parties):
         return _callback
 
     rs = rsc.load(name=name, tag=tag)
+
+    # 调用 Eggroll 的 push() 方法将数据传输至其他参与方 https://zhuanlan.zhihu.com/p/667636158
     futures = rs.push(obj=v, parties=parties)
     for party, future in zip(parties, futures):
         future.add_done_callback(_get_call_back_func(party))

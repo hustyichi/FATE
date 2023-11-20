@@ -42,6 +42,7 @@ class InteractiveLayer(t.nn.Module, FateTorchLayer):
         t.nn.Module.__init__(self)
         FateTorchLayer.__init__(self)
 
+        # 初始化模型对应的激活函数
         self.activation = None
         if activation is not None:
             if activation.lower() == 'relu':

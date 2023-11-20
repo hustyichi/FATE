@@ -147,7 +147,8 @@ class HeteroNNGuest(HeteroNNBase):
             acc_sample_num = 0
 
             for batch_idx, (batch_data, batch_label) in enumerate(data_loader):
-                # 实际的模型训练
+
+                # 实际的模型训练，其中包含 top model 与 bottom Model 模型的训练
                 batch_loss = self.model.train(
                     batch_data, batch_label, cur_epoch, batch_idx)
                 if acc_sample_num + batch_size > len(train_ds):

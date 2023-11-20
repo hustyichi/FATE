@@ -26,6 +26,7 @@ from federatedml.transfer_variable.transfer_class.hetero_nn_transfer_variable im
 from federatedml.util import consts
 
 
+# 纵向神经网络基础类
 class HeteroNNBase(ModelBase):
 
     def __init__(self):

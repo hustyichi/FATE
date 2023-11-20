@@ -8,6 +8,7 @@ from fate_arch.common import Party
 __all__ = ["FederationABC"]
 
 
+# 参与方之间传递数据基础类
 class FederationABC(metaclass=ABCMeta):
     """
     federation, get or remote objects and tables

@@ -37,6 +37,8 @@ from federatedml.nn.backend.utils.rng import RandomNumberGenerator
 PLAINTEXT = False
 
 
+# 纵向联邦神经网络需要进行的数据传输项的封装
+# 通过不同的 variable 用于传输不同类型的数据
 class HEInteractiveTransferVariable(BaseTransferVariables):
     def __init__(self, flowid=0):
         super().__init__(flowid)
@@ -50,6 +52,8 @@ class HEInteractiveTransferVariable(BaseTransferVariables):
             name='encrypted_guest_forward', src=['guest'], dst=['host'])
         self.encrypted_guest_weight_gradient = self._create_variable(
             name='encrypted_guest_weight_gradient', src=['guest'], dst=['host'])
+
+        # 用于 Host 前向传播结果的传输
         self.encrypted_host_forward = self._create_variable(
             name='encrypted_host_forward', src=['host'], dst=['guest'])
         self.host_backward = self._create_variable(
@@ -191,12 +195,14 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         if self.model is None:
             raise ValueError('torch interactive model is not initialized!')
 
+        # 根据 Host 数量各自创建一个全连接层，保存至 self.host_model_list
         for i in range(self.host_num):
             host_model = NumpyDenseLayerHost()
             host_model.build(self.model.host_model[i])
             host_model.set_learning_rate(self.learning_rate)
             self.host_model_list.append(host_model)
 
+        # 构建 Guest 全连接层，保存至 self.guest_model
         self.guest_model = NumpyDenseLayerGuest()
         self.guest_model.build(self.model.guest_model)
         self.guest_model.set_learning_rate(self.learning_rate)
@@ -255,6 +261,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
     def plaintext_forward(self, guest_input, epoch=0, batch=0, train=True):
 
         if self.model is None:
+            # 获取 layer_config 中定义的神经网络中的第一层
+
             self.model = recover_sequential_from_dict(self.layer_config)[0]
 
             if self.float64:
@@ -313,7 +321,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
     """
     Activation forward & backward
     """
-
+    # 激活函数前向传播
     def activation_forward(self, dense_out, with_grad=True):
         if with_grad:
             if (self.dense_output_data_require_grad is not None) or (
@@ -357,6 +365,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             LOGGER.info("predicting, {} pred iteration {} batch {}"
                         "".format(descr, epoch, batch))
 
+    # 将各个 Host 前向传播的输出列表合并
+    # encrypted_host_input 为 Host 前向传播结果列表
     def forward_interactive(
             self,
             encrypted_host_input,
@@ -373,12 +383,16 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         guest_nosies = []
 
         host_idx = 0
+        # self.host_model_list 是为 Host 构建的全连接层列表，每个 Host 对应一个全连接层
         for model, host_bottom_input in zip(
                 self.host_model_list, encrypted_host_input):
 
+            # 将 Host 前向传播的输出通过全连接层进行转换
             encrypted_fw = model(host_bottom_input, self.fixed_point_encoder)
+
             mask_table = None
             if train:
+                # 只是神经网络中的 Dropout 算法
                 self._create_drop_out(encrypted_fw.shape)
                 if self.drop_out:
                     mask_table = self.drop_out.generate_mask_table(
@@ -387,6 +401,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                     encrypted_fw = encrypted_fw.select_columns(mask_table)
                     mask_table_list.append(mask_table)
 
+            # 为 Host 前向传播的结果添加噪声
             guest_forward_noise = self.rng_generator.fast_generate_random_number(
                 encrypted_fw.shape, encrypted_fw.partitions, keep_table=mask_table)
             if self.fixed_point_encoder:
@@ -395,28 +410,36 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             else:
                 encrypted_fw += guest_forward_noise
 
+            # guest_nosies 存储添加的噪声列表
             guest_nosies.append(guest_forward_noise)
 
+            # Guest 将 Host 前向传播添加噪音的结果传递给 Host
             self.send_guest_encrypted_forward_output_with_noise_to_host(
                 encrypted_fw.get_obj(), epoch, batch, idx=host_idx)
+
+            # 将 Dropout 对应的 mask_table 传递给 Host
             if mask_table:
                 self.send_interactive_layer_drop_out_table(
                     mask_table, epoch, batch, idx=host_idx)
 
             host_idx += 1
 
-        # get list from hosts
+        # 获取 Host 解密前向传播并混合 Guest 噪声的结果
         decrypted_dense_outputs = self.get_guest_decrypted_forward_from_host(
             epoch, batch, idx=-1)
         merge_output = None
         for idx, (outputs, noise) in enumerate(
                 zip(decrypted_dense_outputs, guest_nosies)):
+
+            # 去除 Guest 自身添加的噪声，得到解密后的 Host 前向传播的输出
             out = PaillierTensor(outputs) - noise
             if len(mask_table_list) != 0:
                 out = PaillierTensor(
                     out.get_obj().join(
                         mask_table_list[idx],
                         self.expand_columns))
+
+            # 将 Host 前向传播的结果合并至 merge_output
             if merge_output is None:
                 merge_output = out
             else:
@@ -424,7 +447,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
 
         return merge_output
 
-    # 输入 x 为 Guest 本地模型的输出，与 Host 本地的模型的输出进行合并
+    # 输入 x 为 Guest 本地模型的输出，与 Host 本地的模型的输出进行合并作为全局模型的输入
     def forward(self, x, epoch: int, batch: int, train: bool = True, **kwargs):
 
         self.print_log(
@@ -436,6 +459,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             return self.plaintext_forward(x, epoch, batch, train)
 
         if self.model is None:
+
+            # 获取 layer_config 中定义的神经网络中的第一层
             self.model = recover_sequential_from_dict(self.layer_config)[0]
             LOGGER.debug('interactive model is {}'.format(self.model))
             # for multi host cases
@@ -454,8 +479,10 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         if train and not self.drop_out_initiated:
             self.init_drop_out_parameter()
 
+        # 从 Host 获取前向传播的输出, idx 为 -1 表示接收所有 Host 发来的数据
         host_inputs = self.get_forward_from_host(epoch, batch, train, idx=-1)
 
+        # 将 Host 前向传播的输出转换为 PaillierTensor 对象，因为收到的数据本身是使用 Paillier 进行加密的，转换后保存至 host_bottom_inputs_tensor 中
         host_bottom_inputs_tensor = []
         host_input_shapes = []
         for i in host_inputs:
@@ -466,6 +493,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         self.model.lazy_to_linear(x.shape[1], host_dims=host_input_shapes)
         self.host_input_shapes = host_input_shapes
 
+        # 构建 guest_model 为一个全连接层，在 host_model_list 中为各个 Host 构建一个全连接层
         if self.guest_model is None:
             LOGGER.info("building interactive layers' training model")
             self._build_model()
@@ -479,7 +507,10 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 self.send_interactive_layer_output_unit(
                     self.host_model_list[idx].output_shape[0], idx=idx)
 
+        # 获取 guest 输出，通过全连接层 self.guest_model 进行转换，保证 shape 对齐
         guest_output = self.guest_model(x)
+
+        # 获取 Host 输出，为各个 Host 本地模型前向传播结果的合并
         host_output = self.forward_interactive(
             host_bottom_inputs_tensor, epoch, batch, train)
 
@@ -512,9 +543,11 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         else:
             with_grad = True
 
+        # 通过激活函数进行前向传播结果的处理
         activation_out = self.activation_forward(
             dense_out, with_grad=with_grad)
 
+        # 执行 Drop out 算法
         if train and self.drop_out:
             return self.drop_out.forward(activation_out)
 
@@ -558,6 +591,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
 
         return decrypted_weight_gradient, encrypted_acc_noise
 
+    # 根据全局模型反向传播的梯度获取 Host 与 Guest 本地模型反向传播的梯度, 并将 Host 反向传播的梯度发送给 Host
     def backward(self, error, epoch: int, batch: int, selective_ids=None):
 
         if self.plaintext:
@@ -583,13 +617,18 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 "interactive layer start backward propagation of epoch {} batch {}".format(
                     epoch, batch))
             if not self.do_backward_select_strategy:
+
+                # 执行激活函数的反向传播
                 activation_gradient = self.activation_backward(error)
             else:
                 act_input = self.host_model_list[0].get_selective_activation_input(
                 )
                 _ = self.activation_forward(torch.from_numpy(act_input), True)
+
+                # 执行激活函数的反向传播
                 activation_gradient = self.activation_backward(error)
 
+            # 执行 Drop out 反向传播
             if self.drop_out:
                 activation_gradient = self.drop_out.backward(
                     activation_gradient)
@@ -668,10 +707,12 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                                                     idx=idx,
                                                     suffix=(epoch, batch,))
 
+    # 从 Host 获取前向传播的输出
     def get_forward_from_host(self, epoch, batch, train, idx=0):
         return self.transfer_variable.encrypted_host_forward.get(
             idx=idx, suffix=(epoch, batch, train))
 
+    # Guest 将 Host 前向传播添加噪音的结果传递给 Host
     def send_guest_encrypted_forward_output_with_noise_to_host(
             self, encrypted_guest_forward_with_noise, epoch, batch, idx):
         return self.transfer_variable.encrypted_guest_forward.remote(
@@ -683,11 +724,13 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 batch,
             ))
 
+    # 将 Drop out 对应的 mask_table 发送至 Host
     def send_interactive_layer_drop_out_table(
             self, mask_table, epoch, batch, idx):
         return self.transfer_variable.drop_out_table.remote(
             mask_table, role=consts.HOST, idx=idx, suffix=(epoch, batch,))
 
+    # 获取解密的 Host 前向传播 + Guest 添加的噪声的结果
     def get_guest_decrypted_forward_from_host(self, epoch, batch, idx=0):
         return self.transfer_variable.decrypted_guest_forward.get(
             idx=idx, suffix=(epoch, batch,))
@@ -736,6 +779,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         self._build_model()
 
 
+#  Host 用于与 Guest 交互封装类
 class HEInteractiveLayerHost(InteractiveLayerHost):
 
     def __init__(self, params):
@@ -780,6 +824,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
     def plaintext_backward(self, epoch, batch):
         return self.get_host_backward_from_guest(epoch, batch)
 
+    # Host 模型训练前向传播，host_input 为本地模型训练的输出，作为全局模型的输入
     def forward(self, host_input, epoch=0, batch=0, train=True, **kwargs):
 
         if self.plaintext:
@@ -796,15 +841,21 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
         LOGGER.info(
             "forward propagation: encrypt host_bottom_output of epoch {} batch {}".format(
                 epoch, batch))
+        # 封装 Paillier 执行 tensor 同态加密
         host_input = PaillierTensor(host_input, partitions=self.partitions)
 
-        # 将 Host 本地模型预测的结果发送给 Guest
+        # 执行 tensor 加密
         encrypted_host_input = host_input.encrypt(self.encrypter)
+
+        # 将 Host 本地模型预测的结果加密后发送给 Guest
         self.send_forward_to_guest(
             encrypted_host_input.get_obj(), epoch, batch, train)
 
+        # 从 Guest 获取 Host 本地模型前向传播并在 Guest 服务上添加了噪声的结果
         encrypted_guest_forward = PaillierTensor(
             self.get_guest_encrypted_forward_from_guest(epoch, batch))
+
+        # 对添加了噪声的前向传播的结果进行解密
         decrypted_guest_forward = encrypted_guest_forward.decrypt(
             self.encrypter)
 
@@ -819,6 +870,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
         if self.acc_noise is None:
             self.acc_noise = np.zeros((self.input_shape, self.output_unit))
 
+        # 获取 Guest Drop out 对应的 mask table
         mask_table = None
         if train and self.drop_out_keep_rate and self.drop_out_keep_rate < 1:
             mask_table = self.get_interactive_layer_drop_out_table(
@@ -832,6 +884,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
             noise_part = (host_input * self.acc_noise)
             decrypted_guest_forward_with_noise = decrypted_guest_forward + noise_part
 
+        # 将解密后 Host 本地模型前向传播 + Guest 噪声的结果传递给 Guest
         self.send_decrypted_guest_forward_with_noise_to_guest(
             decrypted_guest_forward_with_noise.get_obj(), epoch, batch)
 
@@ -907,10 +960,12 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
 
         return encrypted_guest_weight_gradient
 
+    # 获取 Guest Drop out 对应的 mask table
     def get_interactive_layer_drop_out_table(self, epoch, batch):
         return self.transfer_variable.drop_out_table.get(
             idx=0, suffix=(epoch, batch,))
 
+    # 将 Host 前向传播的输出发送至 Guest, 通过 idx = 0 限制避免发送给其他参与方
     def send_forward_to_guest(self, encrypted_host_input, epoch, batch, train):
         self.transfer_variable.encrypted_host_forward.remote(
             encrypted_host_input, idx=0, role=consts.GUEST, suffix=(epoch, batch, train))
@@ -926,12 +981,14 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
 
         return host_backward
 
+    # 从 Guest 获取 Host 前向传播并添加了噪声的结果
     def get_guest_encrypted_forward_from_guest(self, epoch, batch):
         encrypted_guest_forward = self.transfer_variable.encrypted_guest_forward.get(
             idx=0, suffix=(epoch, batch,))
 
         return encrypted_guest_forward
 
+    # 将解密后 Host 本地模型前向传播 + Guest 噪声的结果传递给 Guest
     def send_decrypted_guest_forward_with_noise_to_guest(
             self, decrypted_guest_forward_with_noise, epoch, batch):
         self.transfer_variable.decrypted_guest_forward.remote(

@@ -156,7 +156,7 @@ class HeteroNNGuestModel(HeteroNNModel):
         selective_ids, gradients, loss = self.top_model.train_and_get_backward_gradient(
             interactive_output, y)
 
-        # 将 Host 对应的梯度传递给 Host
+        # 根据全局模型反向传播的梯度获取 Host 与 Guest 服务对应的梯度，将 Host 反向传播的梯度发送给 Host
         interactive_layer_backward = self.interactive_model.backward(
             error=gradients, epoch=epoch, batch=batch_idx, selective_ids=selective_ids)
 
@@ -358,6 +358,7 @@ class HeteroNNHostModel(HeteroNNModel):
         self._build_bottom_model()
         self.bottom_model.restore_model(model_bytes)
 
+    # 构建与 Guest 交互封装类
     def _build_interactive_model(self):
         self.interactive_model = HEInteractiveLayerHost(self.hetero_nn_param)
         self.interactive_model.set_partition(self.partition)

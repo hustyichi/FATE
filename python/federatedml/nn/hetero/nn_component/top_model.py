@@ -106,8 +106,13 @@ class TopModel(object):
                 self.batch_data_cached_X = self.batch_data_cached_X[self.batch_size:]
                 self.batch_data_cached_y = self.batch_data_cached_y[self.batch_size:]
         else:
+            # 获取输入对应的梯度
             input_gradient = self._model.get_input_gradients(x, y)[0]
+
+            # 对全局模型模型执行训练
             self._model.train((x, y))
+
+            # 获取全局模型对应的损失
             loss = self._model.get_loss()[0]
 
         return selective_id, input_gradient, loss
