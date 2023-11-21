@@ -564,6 +564,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         LOGGER.info(
             "get encrypted weight gradient of epoch {} batch {}".format(
                 epoch, batch))
+
+        # 获取 activatation_gradient * host output
         encrypted_weight_gradient = host_model.get_weight_gradient(
             activation_gradient, encoder=self.fixed_point_encoder)
         if self.fixed_point_encoder:
@@ -571,6 +573,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 encrypted_weight_gradient)
         noise_w = self.rng_generator.generate_random_number(
             encrypted_weight_gradient.shape)
+
+        # 将  activatation_gradient * host output + noise_w 发送给 Host 服务
         self.transfer_variable.encrypted_guest_weight_gradient.remote(
             encrypted_weight_gradient +
             noise_w,
@@ -583,9 +587,12 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         LOGGER.info(
             "get decrypted weight graident of epoch {} batch {}".format(
                 epoch, batch))
+
+        # 获取 Host 全连接对应的 wx + b 中 w 反向传播的梯度
         decrypted_weight_gradient = self.transfer_variable.decrypted_guest_weight_gradient.get(
             idx=host_idx, suffix=(epoch, batch,))
         decrypted_weight_gradient -= noise_w
+
         encrypted_acc_noise = self.get_encrypted_acc_noise_from_host(
             epoch, batch, idx=host_idx)
 
@@ -636,7 +643,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 "interactive layer update guest weight of epoch {} batch {}".format(
                     epoch, batch))
 
-            # update guest model
+            # 更新 Guest 全连接层模型，返回 Guest 本地模型对应的梯度
             guest_input_gradient = self.update_guest(activation_gradient)
 
             LOGGER.debug('update host model weights')
@@ -646,6 +653,8 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                     host_model, activation_gradient, epoch, batch, host_idx=idx)
                 host_input_gradient = self.update_host(
                     host_model, activation_gradient, host_weight_gradient, acc_noise)
+
+                # 将 Host 反向传播的梯度发送给对应的 Host
                 self.send_host_backward_to_host(
                     host_input_gradient.get_obj(), epoch, batch, idx=idx)
 
@@ -675,8 +684,11 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             acc_noise):
         activation_gradient_tensor = PaillierTensor(
             activation_gradient, partitions=self.partitions)
+
+        # 获取 Host 反向传播的梯度，对应于 activation_gradient_tensor * (model_weight + acc_noise)
         input_gradient = host_model.get_input_gradient(
             activation_gradient_tensor, acc_noise, encoder=self.fixed_point_encoder)
+
         host_model.update_weight(weight_gradient)
         host_model.update_bias(activation_gradient)
 
@@ -701,6 +713,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             (selective_ids, gradient_len), role=consts.HOST, idx=idx, suffix=(
                 epoch, batch,))
 
+    # Guest 发送给 Host 反向传播的梯度
     def send_host_backward_to_host(self, host_error, epoch, batch, idx):
         self.transfer_variable.host_backward.remote(host_error,
                                                     role=consts.HOST,
@@ -735,6 +748,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
         return self.transfer_variable.decrypted_guest_forward.get(
             idx=idx, suffix=(epoch, batch,))
 
+    # 获取 Host 累加的 acc 噪声
     def get_encrypted_acc_noise_from_host(self, epoch, batch, idx=0):
         return self.transfer_variable.encrypted_acc_noise.get(
             idx=idx, suffix=(epoch, batch,))
@@ -918,10 +932,15 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
         LOGGER.info(
             "encrypt acc_noise of epoch {} batch {}".format(
                 epoch, batch))
+
+        # 将 acc 累加噪声发送至 Guest，方便计算 Host 本地模型对应的反向传播梯度
         encrypted_acc_noise = self.encrypter.recursive_encrypt(self.acc_noise)
         self.send_encrypted_acc_noise_to_guest(
             encrypted_acc_noise, epoch, batch)
+
         self.acc_noise += noise_weight_gradient
+
+        # Host 从 Guest 获取反向传播的梯度
         host_input_gradient = PaillierTensor(
             self.get_host_backward_from_guest(epoch, batch))
         host_input_gradient = host_input_gradient.decrypt(self.encrypter)
@@ -944,6 +963,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
 
         return selective_ids, do_backward
 
+    # Host 发送累加的 acc 噪声至 Guest
     def send_encrypted_acc_noise_to_guest(
             self, encrypted_acc_noise, epoch, batch):
         self.transfer_variable.encrypted_acc_noise.remote(encrypted_acc_noise,
@@ -975,6 +995,7 @@ class HEInteractiveLayerHost(InteractiveLayerHost):
         self.transfer_variable.decrypted_guest_weight_gradient.remote(
             decrypted_guest_weight_gradient, idx=0, role=consts.GUEST, suffix=(epoch, batch,))
 
+    # Host 从 Guest 获取反向传播的梯度
     def get_host_backward_from_guest(self, epoch, batch):
         host_backward = self.transfer_variable.host_backward.get(
             idx=0, suffix=(epoch, batch,))

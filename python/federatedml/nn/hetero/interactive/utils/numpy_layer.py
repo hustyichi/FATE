@@ -238,9 +238,11 @@ class NumpyDenseLayerHost(NumpyDenseLayer):
 
         return delta_w
 
+    # 更新全连接对应的参数 wx + b 中的 w
     def update_weight(self, delta):
         self.model_weight -= delta * self.lr
 
+    # 更新全连接对应的参数 wx + b 中的 b
     def update_bias(self, delta):
         if self.bias is not None:
             self.bias -= np.sum(delta, axis=0) * self.lr
