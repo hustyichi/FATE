@@ -635,7 +635,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
                 # 执行激活函数的反向传播
                 activation_gradient = self.activation_backward(error)
 
-            # 执行 Drop out 反向传播
+            # 执行 Drop out 反向传播，得到全连接层输出反向传播对应的梯度
             if self.drop_out:
                 activation_gradient = self.drop_out.backward(
                     activation_gradient)
@@ -646,7 +646,7 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
             # 更新 Guest 全连接层模型，返回 Guest 本地模型对应的梯度
             guest_input_gradient = self.update_guest(activation_gradient)
 
-            LOGGER.debug('update host model weights')
+            # 更新 Host 全连接层对应的参数，获取 Host 本地模型反向传播的梯度，并发送给 Host 服务
             for idx, host_model in enumerate(self.host_model_list):
                 # update host models
                 host_weight_gradient, acc_noise = self.backward_interactive(
@@ -667,11 +667,18 @@ class HEInteractiveLayerGuest(InteractiveLayerGuest):
     """
 
     def update_guest(self, activation_gradient):
+        # 获取 Guest 本地模型反向传播的梯度
         input_gradient = self.guest_model.get_input_gradient(
             activation_gradient)
+
+        # 获取 Host 全连接层 y = wx + b 中 w 反向传播对应的梯度
         weight_gradient = self.guest_model.get_weight_gradient(
             activation_gradient)
+
+        # 根据 Host 全连接层 w 对应的梯度更新参数
         self.guest_model.update_weight(weight_gradient)
+
+        # 获取 Host 全连接层 b 对应的梯度并更新对应的参数
         self.guest_model.update_bias(activation_gradient)
 
         return input_gradient
