@@ -42,6 +42,7 @@ except ImportError:
     pass
 
 
+# 基础加密类，定义加密类需要包含的方法
 class Encrypt(object):
     def __init__(self):
         self.public_key = None
@@ -176,6 +177,7 @@ class RsaEncrypt(Encrypt):
             return None
 
 
+# Paillier 同态加密
 class PaillierEncrypt(Encrypt):
     def __init__(self):
         super(PaillierEncrypt, self).__init__()
