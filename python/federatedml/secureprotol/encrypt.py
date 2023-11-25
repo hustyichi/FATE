@@ -126,6 +126,7 @@ class Encrypt(object):
         return self._recursive_func(X, self.raw_decrypt)
 
 
+# RSA 加密
 class RsaEncrypt(Encrypt):
     def __init__(self):
         super(RsaEncrypt, self).__init__()

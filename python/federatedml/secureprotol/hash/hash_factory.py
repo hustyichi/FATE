@@ -139,6 +139,7 @@ HASH_BASE64_FUNCTION = {
 }
 
 
+# 基于 hashlib 实现的 hash 计算封装，实现比较简单
 class Hash:
     def __init__(self, method, base64=0, hex_output=True):
         self.method = method

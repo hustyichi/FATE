@@ -127,6 +127,7 @@ class DHServer(object):
         self._p_power_r_bc.remote_parties(obj=pubkey, parties=self._client_parties)
 
 
+# 执行秘钥交换，基于 Diffne Hellman 生成共享秘钥
 class DHClient(object):
 
     def __init__(self, trans_var: DHTransVar = None):
