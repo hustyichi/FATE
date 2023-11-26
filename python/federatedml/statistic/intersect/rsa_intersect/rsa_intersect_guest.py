@@ -185,16 +185,19 @@ class RsaIntersectionGuest(RsaIntersect):
 
         return intersect_ids
 
+    # 实际隐私集合求交的实现
     def unified_calculation_process(self, data_instances):
         LOGGER.info("RSA intersect using unified calculation.")
 
-        # receives public key e & n
+        # 获取 RSA 算法的公钥 n, e，可以用于加密
         public_keys = self.transfer_variable.host_pubkey.get(idx=-1)
         # LOGGER.debug(f"Get RSA host_public_key:{public_keys} from Host")
         LOGGER.info(f"Get RSA host_public_key from Host")
         self.rcv_e = [int(public_key["e"]) for public_key in public_keys]
         self.rcv_n = [int(public_key["n"]) for public_key in public_keys]
 
+        # 针对各个 Host 参与方发来的公钥，执行 (r^e%n*Hash(ui))%n, 其中 ui 属于数据列表
+        # 构造出 Y_A 数据,参考文档 https://fate.readthedocs.io/en/latest/zh/federatedml_component/intersect/#rsa-intersection
         pubkey_ids_process_list = [self.pubkey_id_process(data_instances,
                                                           fraction=self.random_base_fraction,
                                                           random_bit=self.random_bit,
@@ -204,6 +207,7 @@ class RsaIntersectionGuest(RsaIntersect):
                                                           salt=self.salt) for i in range(len(self.rcv_e))]
         LOGGER.info(f"Finish pubkey_ids_process")
 
+        # 将 Y_A 数据发送给对应的 Host
         for i, guest_id in enumerate(pubkey_ids_process_list):
             mask_guest_id = guest_id.mapValues(lambda v: None)
             self.transfer_variable.guest_pubkey_ids.remote(mask_guest_id,
@@ -216,6 +220,7 @@ class RsaIntersectionGuest(RsaIntersect):
 
         # Recv signed guest ids
         # table(r^e % n *hash(sid), guest_id_process)
+        # 获取 Host 发来的数据
         recv_host_sign_guest_ids_list = self.transfer_variable.host_sign_guest_ids.get(idx=-1)
         LOGGER.info("Get host_sign_guest_ids from Host")
 

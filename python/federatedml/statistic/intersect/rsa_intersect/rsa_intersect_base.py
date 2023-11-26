@@ -180,6 +180,7 @@ class RsaIntersect(Intersect):
     def cache_unified_calculation_process(self, data_instances, cache_set):
         raise NotImplementedError("This method should not be called here")
 
+    # 隐私计算求交获得交集实际调用的方法
     def run_intersect(self, data_instances):
         LOGGER.info("Start RSA Intersection")
         if self.split_calculation:

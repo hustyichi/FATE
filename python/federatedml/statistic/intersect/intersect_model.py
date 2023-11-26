@@ -210,10 +210,14 @@ class IntersectModelBase(ModelBase):
         if self.component_properties.caches:
             LOGGER.info(f"Cache provided, will enter intersect online process.")
             return self.intersect_online_process(data, self.component_properties.caches)
+
+        # 初始化隐私集合求交的方法，
         self.init_intersect_method()
         if data_overview.check_with_inst_id(data):
             self.use_match_id_process = True
             LOGGER.info(f"use match_id_process")
+
+        # Guest 与 Host 同步 use_match_id_process 标记，确认各方的标记是同样的
         self.sync_use_match_id()
 
         if self.use_match_id_process:
@@ -478,6 +482,7 @@ class IntersectHost(IntersectModelBase):
         super().init_intersect_method()
         self.host_party_id = self.component_properties.local_partyid
 
+        # 根据 intersect_method 选择对应的隐私集合求交的方法进行初始化
         if self.intersect_method == consts.RSA:
             self.intersection_obj = RsaIntersectionHost()
 
@@ -532,6 +537,7 @@ class IntersectGuest(IntersectModelBase):
     def init_intersect_method(self):
         super().init_intersect_method()
 
+        # 根据 intersect_method 选择对应的隐私集合求交的方法进行初始化
         if self.intersect_method == consts.RSA:
             self.intersection_obj = RsaIntersectionGuest()
 

@@ -139,20 +139,24 @@ class RsaIntersectionHost(RsaIntersect):
             LOGGER.info("Get intersect ids from Guest")
         return intersect_ids
 
+    # 实际隐私集合求交的实现
     def unified_calculation_process(self, data_instances):
         LOGGER.info("RSA intersect using unified calculation.")
         # generate rsa keys
         # self.e, self.d, self.n = self.generate_protocol_key()
+
+        # RSA 生成公钥和私钥，其中 self.n, self.e 为公钥，self.n, self.d 为私钥
         self.generate_protocol_key()
         LOGGER.info("Generate protocol key!")
         public_key = {"e": self.e, "n": self.n}
 
-        # sends public key e & n to guest
+        # Host 将公钥 self.n, self.e 发送给 Guest 服务用于加密数据
         self.transfer_variable.host_pubkey.remote(public_key,
                                                   role=consts.GUEST,
                                                   idx=0)
         LOGGER.info("Remote public key to Guest.")
-        # hash host ids
+
+        # 对 Host 本地的数据 hash 计算获得转换后的数据, 类似文档中的 Z_B (https://fate.readthedocs.io/en/latest/zh/federatedml_component/intersect/#rsa-intersection)
         prvkey_ids_process_pair = self.cal_prvkey_ids_process_pair(data_instances,
                                                                    self.d,
                                                                    self.n,
@@ -163,16 +167,20 @@ class RsaIntersectionHost(RsaIntersect):
                                                                    self.first_hash_operator)
 
         prvkey_ids_process = prvkey_ids_process_pair.mapValues(lambda v: None)
+
+        # 将 Host 生成的数据 Z_B 发送至 Guest
         self.transfer_variable.host_prvkey_ids.remote(prvkey_ids_process,
                                                       role=consts.GUEST,
                                                       idx=0)
         LOGGER.info("Remote host_ids_process to Guest.")
 
         # Recv guest ids
+        # 接收 Guest 发来的数据 Y_A
         guest_pubkey_ids = self.transfer_variable.guest_pubkey_ids.get(idx=0)
         LOGGER.info("Get guest_pubkey_ids from guest")
 
         # Process(signs) guest ids and return to guest
+        # 对 Guest 发来的数据 Y_A 执行转换生成 Z_A
         host_sign_guest_ids = guest_pubkey_ids.map(lambda k, v: (k, self.sign_id(k,
                                                                                  self.d,
                                                                                  self.n,
@@ -180,6 +188,7 @@ class RsaIntersectionHost(RsaIntersect):
                                                                                  self.q,
                                                                                  self.cp,
                                                                                  self.cq)))
+        # 将转换的 Z_A 的数据发送给 Guest 服务
         self.transfer_variable.host_sign_guest_ids.remote(host_sign_guest_ids,
                                                           role=consts.GUEST,
                                                           idx=0)
