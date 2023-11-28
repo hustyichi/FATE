@@ -307,7 +307,7 @@ class ModelBase(object):
         )
         LOGGER.debug(f"running_funcs: {running_funcs.todo_func_list}")
         saved_result = []
-        # 依次执行对应的方法列表
+        # 依次执行对应的方法列表，执行结果可以保存至 saved_result 中
         for func, params, save_result, use_previews in running_funcs:
             # for func, params in zip(todo_func_list, todo_func_params):
             if use_previews:

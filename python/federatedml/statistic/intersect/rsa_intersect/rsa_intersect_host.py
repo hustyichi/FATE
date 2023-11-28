@@ -196,6 +196,7 @@ class RsaIntersectionHost(RsaIntersect):
 
         # recv intersect ids
         intersect_ids = None
+        # 获取数据交集
         if self.sync_intersect_ids:
             encrypt_intersect_ids = self.transfer_variable.intersect_ids.get(idx=0)
             intersect_ids_pair = encrypt_intersect_ids.join(prvkey_ids_process_pair, lambda e, h: h)

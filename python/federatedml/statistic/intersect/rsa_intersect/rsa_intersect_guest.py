@@ -215,17 +215,19 @@ class RsaIntersectionGuest(RsaIntersect):
                                                            idx=i)
             LOGGER.info("Remote guest_pubkey_ids to Host {}".format(i))
 
+        # 获取 Host 发来的加密的 Host 本身的加密数据 Z_B
         host_prvkey_ids_list = self.get_host_prvkey_ids()
         LOGGER.info("Get host_prvkey_ids")
 
         # Recv signed guest ids
         # table(r^e % n *hash(sid), guest_id_process)
-        # 获取 Host 发来的数据
+        # 获取 Host 发来的 Guest 加密的数据 Z_A
         recv_host_sign_guest_ids_list = self.transfer_variable.host_sign_guest_ids.get(idx=-1)
         LOGGER.info("Get host_sign_guest_ids from Host")
 
         # table(r^e % n *hash(sid), sid, hash(guest_ids_process/r))
         # g[0]=(r^e % n *hash(sid), sid), g[1]=random bits r
+        # 通过 Z_A 除以 r 计算得到 D_A
         host_sign_guest_ids_list = [v.join(recv_host_sign_guest_ids_list[i],
                                            lambda g, r: (g[0], RsaIntersectionGuest.hash(gmpy2.divm(int(r),
                                                                                                     int(g[1]),
@@ -241,8 +243,10 @@ class RsaIntersectionGuest(RsaIntersect):
         encrypt_intersect_ids_list = [v.join(host_prvkey_ids_list[i], lambda sid, h: sid) for i, v in
                                       enumerate(sid_host_sign_guest_ids_list)]
 
+        # 过滤获得交集数据
         intersect_ids = self.filter_intersect_ids(encrypt_intersect_ids_list, keep_encrypt_ids=True)
 
+        # 将交集数据发送至 Host
         if self.sync_intersect_ids:
             self.send_intersect_ids(encrypt_intersect_ids_list, intersect_ids)
         else:
