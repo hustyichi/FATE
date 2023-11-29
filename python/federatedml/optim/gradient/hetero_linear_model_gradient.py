@@ -307,6 +307,7 @@ class Host(HeteroGradientBase):
         """
         current_suffix = (n_iter_, batch_index)
 
+        # 计算前向传播的结果
         self.forwards = self.compute_forwards(data_instances, model_weights)
 
         if self.use_async:

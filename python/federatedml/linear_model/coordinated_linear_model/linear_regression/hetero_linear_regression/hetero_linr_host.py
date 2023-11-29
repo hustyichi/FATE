@@ -70,13 +70,16 @@ class HeteroLinRHost(HeteroLinRBase):
         else:
             self.callback_warm_start_init_iter(self.n_iter_)
 
+        # 循环训练迭代次数
         while self.n_iter_ < self.max_iter:
             self.callback_list.on_epoch_begin(self.n_iter_)
             LOGGER.info("iter:" + str(self.n_iter_))
             self.optimizer.set_iters(self.n_iter_)
+            # 生成数据 batch 列表
             batch_data_generator = self.batch_generator.generate_batch_data()
             batch_index = 0
             for batch_data in batch_data_generator:
+                # 获取反向传播的梯度
                 optim_host_gradient = self.gradient_loss_operator.compute_gradient_procedure(
                     batch_data,
                     self.cipher_operator,
@@ -88,6 +91,7 @@ class HeteroLinRHost(HeteroLinRBase):
                 self.gradient_loss_operator.compute_loss(self.model_weights, self.optimizer, self.n_iter_, batch_index,
                                                          self.cipher_operator)
 
+                # 使用反向传播的梯度更新模型
                 self.model_weights = self.optimizer.update_model(self.model_weights, optim_host_gradient)
                 batch_index += 1
 
