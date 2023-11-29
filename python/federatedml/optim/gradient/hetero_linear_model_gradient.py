@@ -300,7 +300,7 @@ class Host(HeteroGradientBase):
         # 将加密后 Host 前向传播结果发送给 Guest
         self.remote_host_forward(encrypted_forward, suffix=current_suffix)
 
-        # 获取所有参与方前向传播的结果与目标之间的差值
+        # 获取所有参与方前向传播的结果与目标之间的差值 d = Σ(W_Hj * X_Hj) + W_G * X_G - Y
         fore_gradient = self.fore_gradient_transfer.get(idx=0, suffix=current_suffix)
 
         # Host case, never fit-intercept
@@ -319,7 +319,7 @@ class Host(HeteroGradientBase):
         """
         current_suffix = (n_iter_, batch_index)
 
-        # 计算 Host 本地模型前向传播的结果
+        # 计算 Host 本地模型前向传播的结果, y = wx + b
         self.forwards = self.compute_forwards(data_instances, model_weights)
 
         if self.use_async:
