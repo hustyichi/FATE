@@ -69,8 +69,10 @@ class HeteroBaseArbiter(BaseLinearModel):
 
         LOGGER.info("Enter hetero linear model arbiter fit")
 
+        # 生成 Paillier 加密对象，并将公钥发送给 Host 和 Guest 参与方, 后续 Host 与 Guest 可以加密，但是只有 Arbiter 可以解密
         self.cipher_operator = self.cipher.paillier_keygen(
             self.model_param.encrypt_param.method, self.model_param.encrypt_param.key_length)
+
         self.batch_generator.initialize_batch_generator()
         self.gradient_loss_operator.set_total_batch_nums(self.batch_generator.batch_num)
 
@@ -87,7 +89,10 @@ class HeteroBaseArbiter(BaseLinearModel):
             total_gradient = None
             self.optimizer.set_iters(self.n_iter_)
             for batch_index in batch_data_generator:
-                # Compute and Transfer gradient info
+
+                # self.gradient_loss_operator 对象为 python/federatedml/optim/gradient/hetero_linr_gradient_and_loss.py 中的 Arbiter 对象
+                # 执行的方法为 python/federatedml/optim/gradient/hetero_linear_model_gradient.py 中的 Arbiter.compute_gradient_procedure() 方法
+                # 在方法中获取 Host 与 Guest 参与方的梯度，执行解密后发送给对应的参与方
                 gradient = self.gradient_loss_operator.compute_gradient_procedure(self.cipher_operator,
                                                                                   self.optimizer,
                                                                                   self.n_iter_,
@@ -115,6 +120,7 @@ class HeteroBaseArbiter(BaseLinearModel):
                     self.callback_loss(self.n_iter_, iter_loss)
                 self.loss_history.append(iter_loss)
 
+            # 判断是否收敛
             if self.model_param.early_stop == 'weight_diff':
                 # LOGGER.debug("total_gradient: {}".format(total_gradient))
                 weight_diff = fate_operator.norm(total_gradient)
@@ -136,6 +142,7 @@ class HeteroBaseArbiter(BaseLinearModel):
             if self.stop_training:
                 break
 
+            # 收敛情况下结束训练
             if self.is_converged:
                 break
         LOGGER.debug(f"Finish_train, n_iter: {self.n_iter_}")

@@ -36,11 +36,15 @@ class HeteroLinRBase(BaseLinearRegression):
         self.batch_generator = None
         self.gradient_loss_operator = None
         self.converge_procedure = None
+
+        # 初始化传输对象
         self.transfer_variable = HeteroLinRTransferVariable()
 
     def _init_model(self, params):
         super(HeteroLinRBase, self)._init_model(params)
+        # 注册公钥传输对象, 使用 self.transfer_variable.paillier_pubkey 用于传输公钥
         self.cipher.register_paillier_cipher(self.transfer_variable)
+
         self.converge_procedure.register_convergence(self.transfer_variable)
         self.batch_generator.register_batch_generator(self.transfer_variable)
         self.gradient_loss_operator.register_gradient_procedure(self.transfer_variable)

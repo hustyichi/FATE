@@ -405,6 +405,7 @@ class Arbiter(HeteroGradientBase):
         """
         current_suffix = (n_iter_, batch_index)
 
+        # 获取 Host 与 Guest 服务对应梯度
         host_gradients, guest_gradient = self.get_local_gradient(current_suffix)
 
         if len(host_gradients) > 1:
@@ -419,6 +420,7 @@ class Arbiter(HeteroGradientBase):
         gradient = np.hstack((h for h in host_gradients))
         gradient = np.hstack((gradient, guest_gradient))
 
+        # 对同态加密的梯度进行解密
         grad = np.array(cipher.decrypt_list(gradient))
 
         # LOGGER.debug("In arbiter compute_gradient_procedure, before apply grad: {}, size_list: {}".format(
@@ -430,6 +432,7 @@ class Arbiter(HeteroGradientBase):
         # LOGGER.debug("In arbiter compute_gradient_procedure, delta_grad: {}".format(
         #     delta_grad
         # ))
+        # 根据之前保存的 shape 列表 size_list 分离梯度
         separate_optim_gradient = self.separate(delta_grad, size_list)
         # LOGGER.debug("In arbiter compute_gradient_procedure, separated gradient: {}".format(
         #     separate_optim_gradient
@@ -437,6 +440,7 @@ class Arbiter(HeteroGradientBase):
         host_optim_gradients = separate_optim_gradient[: -1]
         guest_optim_gradient = separate_optim_gradient[-1]
 
+        # 将 Host 与 Guest 参与方解密后的梯度发送给对应的参与方
         self.remote_local_gradient(host_optim_gradients, guest_optim_gradient, current_suffix)
         return delta_grad
 

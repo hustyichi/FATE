@@ -20,9 +20,11 @@ from federatedml.util import consts
 
 class Arbiter(object):
     # noinspection PyAttributeOutsideInit
+    # 注册公钥传输对象
     def _register_paillier_keygen(self, pubkey_transfer):
         self._pubkey_transfer = pubkey_transfer
 
+    # 生成同态加密的公钥和私钥对
     def paillier_keygen(self, method, key_length, suffix=tuple()):
         if method == consts.PAILLIER:
             cipher = PaillierEncrypt()
@@ -33,6 +35,8 @@ class Arbiter(object):
 
         cipher.generate_key(key_length)
         pub_key = cipher.get_public_key()
+
+        # Arbiter 将公钥发送给 Host 和 Guest 参与方
         self._pubkey_transfer.remote(obj=pub_key, role=consts.HOST, idx=-1, suffix=suffix)
         self._pubkey_transfer.remote(obj=pub_key, role=consts.GUEST, idx=-1, suffix=suffix)
         return cipher
@@ -40,6 +44,7 @@ class Arbiter(object):
 
 class _Client(object):
     # noinspection PyAttributeOutsideInit
+    # 注册公钥传输对象
     def _register_paillier_keygen(self, pubkey_transfer):
         self._pubkey_transfer = pubkey_transfer
 
