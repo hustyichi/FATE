@@ -174,7 +174,10 @@ class Guest(HeteroGradientBase):
         return unilateral_gradient
 
     def _centralized_compute_gradient(self, data_instances, model_weights, cipher, current_suffix, masked_index=None):
+        # 获取所有 Host 前向传播的结果
         self.host_forwards = self.get_host_forward(suffix=current_suffix)
+
+        # 利用 compute_half_d 计算出的 Guest 前向传播与目标之间的差值
         fore_gradient = self.half_d
 
         batch_size = data_instances.count()
@@ -184,6 +187,7 @@ class Guest(HeteroGradientBase):
             masked_index_to_encrypt = masked_index.subtractByKey(self.half_d)
             partial_masked_index_enc = cipher.distribute_encrypt(masked_index_to_encrypt)
 
+        # 累加后获得所有 Host + Guest 前向传播之和与目标之间的差值
         for host_forward in self.host_forwards:
             if self.use_sample_weight:
                 # host_forward = host_forward.join(data_instances, lambda h, v: h * v.weight)
@@ -195,6 +199,7 @@ class Guest(HeteroGradientBase):
             return val
         fore_gradient = fore_gradient.mapValues(lambda val: _apply_obfuscate(val) / batch_size)
 
+        # 将所有参与方前向传播之和与目标之间的差值传递给 Host 参与方
         if partial_masked_index_enc:
             masked_fore_gradient = partial_masked_index_enc.union(fore_gradient)
             self.remote_fore_gradient(masked_fore_gradient, suffix=current_suffix)
@@ -224,6 +229,7 @@ class Guest(HeteroGradientBase):
         # self.host_forwards = self.get_host_forward(suffix=current_suffix)
 
         # Compute Guest's partial d
+        # 计算 Guest 本地模型前向传播结果与目标之间的差值，保存至 self.half_d
         self.compute_half_d(data_instances, model_weights, cipher,
                             batch_index, current_suffix)
         if self.use_async:
@@ -243,10 +249,12 @@ class Guest(HeteroGradientBase):
         # LOGGER.debug(f"Before return, optimized_gradient: {optimized_gradient}")
         return optimized_gradient
 
+    # 获取 Host 前向传播的结果
     def get_host_forward(self, suffix=tuple()):
         host_forward = self.host_forward_transfer.get(idx=-1, suffix=suffix)
         return host_forward
 
+    # 将前向传播与目标之间的差值传递给 Host
     def remote_fore_gradient(self, fore_gradient, suffix=tuple()):
         self.fore_gradient_transfer.remote(obj=fore_gradient, role=consts.HOST, idx=-1, suffix=suffix)
 
@@ -286,9 +294,13 @@ class Host(HeteroGradientBase):
         return unilateral_gradient
 
     def _centralized_compute_gradient(self, data_instances, cipher, current_suffix):
+        # 对 Host 前向传播的结果执行同态加密
         encrypted_forward = cipher.distribute_encrypt(self.forwards)
+
+        # 将加密后 Host 前向传播结果发送给 Guest
         self.remote_host_forward(encrypted_forward, suffix=current_suffix)
 
+        # 获取所有参与方前向传播的结果与目标之间的差值
         fore_gradient = self.fore_gradient_transfer.get(idx=0, suffix=current_suffix)
 
         # Host case, never fit-intercept
@@ -307,7 +319,7 @@ class Host(HeteroGradientBase):
         """
         current_suffix = (n_iter_, batch_index)
 
-        # 计算前向传播的结果
+        # 计算 Host 本地模型前向传播的结果
         self.forwards = self.compute_forwards(data_instances, model_weights)
 
         if self.use_async:
@@ -322,6 +334,7 @@ class Host(HeteroGradientBase):
         if optimizer is not None:
             unilateral_gradient = optimizer.add_regular_to_grad(unilateral_gradient, model_weights)
 
+        # 根据差值计算反向传播梯度？
         optimized_gradient = self.update_gradient(unilateral_gradient, suffix=current_suffix)
         LOGGER.debug(f"Before return compute_gradient_procedure")
         return optimized_gradient

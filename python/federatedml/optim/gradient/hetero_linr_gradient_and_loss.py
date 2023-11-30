@@ -36,6 +36,7 @@ class Guest(hetero_linear_model_gradient.Guest, loss_sync.Guest):
                                  transfer_variables.loss,
                                  transfer_variables.loss_intermediate)
 
+    # 计算 Guest 本地模型前向传播与目标之间的差值，后续增加各个 Host 前向传播的结果后得到的就是真实的差值
     def compute_half_d(self, data_instances, w, cipher, batch_index, current_suffix):
         if self.use_sample_weight:
             self.half_d = data_instances.mapValues(
@@ -115,6 +116,7 @@ class Host(hetero_linear_model_gradient.Host, loss_sync.Host):
                                  transfer_variables.loss,
                                  transfer_variables.loss_intermediate)
 
+    # Host 前向传播的结果 y = w*x + b
     def compute_forwards(self, data_instances, model_weights):
         wx = data_instances.mapValues(
             lambda v: vec_dot(v.features, model_weights.coef_) + model_weights.intercept_)

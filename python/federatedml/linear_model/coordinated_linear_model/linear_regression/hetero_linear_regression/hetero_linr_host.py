@@ -50,6 +50,7 @@ class HeteroLinRHost(HeteroLinRBase):
         self.prepare_fit(data_instances, validate_data)
         self.callback_list.on_train_begin(data_instances, validate_data)
 
+        # 初始化同态加密对象
         self.cipher_operator = self.cipher.gen_paillier_cipher_operator()
 
         if self.transfer_variable.use_async.get(idx=0):

@@ -61,6 +61,7 @@ class HeteroLinRGuest(HeteroLinRBase):
         self.prepare_fit(data_instances, validate_data)
         self.callback_list.on_train_begin(data_instances, validate_data)
 
+        # 初始化同态加密对象
         self.cipher_operator = self.cipher.gen_paillier_cipher_operator()
 
         use_async = False
@@ -111,6 +112,7 @@ class HeteroLinRGuest(HeteroLinRBase):
                 loss_norm = self.optimizer.loss_norm(self.model_weights)
                 self.gradient_loss_operator.compute_loss(batch_data, self.n_iter_, batch_index, loss_norm)
 
+                # 根据梯度更新模型权重
                 self.model_weights = self.optimizer.update_model(self.model_weights, optim_guest_gradient)
                 batch_index += 1
 
