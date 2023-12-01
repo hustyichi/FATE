@@ -62,6 +62,7 @@ class HeteroLinRHost(HeteroLinRBase):
 
         LOGGER.info("Start initialize model.")
         model_shape = self.get_features_shape(data_instances)
+        # Host 不使用截距，因此 y = wx
         if self.init_param_obj.fit_intercept:
             self.init_param_obj.fit_intercept = False
 

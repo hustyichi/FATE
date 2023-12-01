@@ -104,6 +104,7 @@ class BaseLinearModel(ModelBase):
             return self.header
         return data_instances.schema.get("header", [])
 
+    # 线性回归中是否使用截距
     @property
     def fit_intercept(self):
         return self.init_param_obj.fit_intercept
