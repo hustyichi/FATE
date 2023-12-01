@@ -99,7 +99,7 @@ class HeteroLinRGuest(HeteroLinRBase):
             self.optimizer.set_iters(self.n_iter_)
             batch_index = 0
             for batch_data in batch_data_generator:
-                # Start gradient procedure
+                # 前向传播，并计算 w 权重参数对应的梯度
                 optim_guest_gradient = self.gradient_loss_operator.compute_gradient_procedure(
                     batch_data,
                     self.cipher_operator,

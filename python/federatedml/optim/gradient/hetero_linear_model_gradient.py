@@ -57,6 +57,7 @@ class HeteroGradientBase(object):
         if floating_point_precision is not None:
             self.fixed_point_encoder = FixedPointEncoder(2**floating_point_precision)
 
+    # 执行的 data 值元组中两值乘法并累加求和
     @staticmethod
     def __apply_cal_gradient(data, fixed_point_encoder, is_sparse):
         all_g = None
@@ -104,10 +105,14 @@ class HeteroGradientBase(object):
         LOGGER.debug("Use apply partitions")
         feat_join_grad = data_instances.join(fore_gradient,
                                              lambda d, g: (d.features, g))
+        # 利用偏函数定义部分参数
         f = functools.partial(self.__apply_cal_gradient,
                               fixed_point_encoder=self.fixed_point_encoder,
                               is_sparse=is_sparse)
+
+        # 根据前向传播的 ∂l/∂w = ∂l/∂y*∂y/∂w ，其中 ∂l/∂y 就是 fore_gradient，而 ∂y/∂w 等于 x，就是对应的输入值
         gradient_sum = feat_join_grad.applyPartitions(f)
+
         gradient_sum = gradient_sum.reduce(lambda x, y: x + y)
         if fit_intercept:
             # bias_grad = np.sum(fore_gradient)
@@ -187,7 +192,7 @@ class Guest(HeteroGradientBase):
             masked_index_to_encrypt = masked_index.subtractByKey(self.half_d)
             partial_masked_index_enc = cipher.distribute_encrypt(masked_index_to_encrypt)
 
-        # 累加后获得所有 Host + Guest 前向传播之和与目标之间的差值
+        # 累加后获得所有 Host + Guest 前向传播之和与目标之间的差值，即 d = Σ(W_Hj * X_Hj) + W_G * X_G - Y
         for host_forward in self.host_forwards:
             if self.use_sample_weight:
                 # host_forward = host_forward.join(data_instances, lambda h, v: h * v.weight)
@@ -207,6 +212,7 @@ class Guest(HeteroGradientBase):
             self.remote_fore_gradient(fore_gradient, suffix=current_suffix)
 
         # self.remote_fore_gradient(fore_gradient, suffix=current_suffix)
+        # 计算获得 w 权重参数对应的梯度
         unilateral_gradient = self.compute_gradient(data_instances, fore_gradient,
                                                     model_weights.fit_intercept, need_average=False)
         return unilateral_gradient
@@ -229,7 +235,7 @@ class Guest(HeteroGradientBase):
         # self.host_forwards = self.get_host_forward(suffix=current_suffix)
 
         # Compute Guest's partial d
-        # 计算 Guest 本地模型前向传播结果与目标之间的差值，保存至 self.half_d
+        # 计算 Guest 本地模型前向传播结果与目标之间的差值，即 W_G * X_G - y， 保存至 self.half_d
         self.compute_half_d(data_instances, model_weights, cipher,
                             batch_index, current_suffix)
         if self.use_async:
@@ -245,6 +251,7 @@ class Guest(HeteroGradientBase):
         if optimizer is not None:
             unilateral_gradient = optimizer.add_regular_to_grad(unilateral_gradient, model_weights)
 
+        # 将加密的梯度发送给 Arbiter，然后获取解密后的梯度
         optimized_gradient = self.update_gradient(unilateral_gradient, suffix=current_suffix)
         # LOGGER.debug(f"Before return, optimized_gradient: {optimized_gradient}")
         return optimized_gradient
@@ -258,6 +265,7 @@ class Guest(HeteroGradientBase):
     def remote_fore_gradient(self, fore_gradient, suffix=tuple()):
         self.fore_gradient_transfer.remote(obj=fore_gradient, role=consts.HOST, idx=-1, suffix=suffix)
 
+    # 将加密的梯度发送给 Arbiter，然后获取解密后的梯度
     def update_gradient(self, unilateral_gradient, suffix=tuple()):
         self.unilateral_gradient_transfer.remote(unilateral_gradient, role=consts.ARBITER, idx=0, suffix=suffix)
         optimized_gradient = self.unilateral_optim_gradient_transfer.get(idx=0, suffix=suffix)
@@ -300,10 +308,11 @@ class Host(HeteroGradientBase):
         # 将加密后 Host 前向传播结果发送给 Guest
         self.remote_host_forward(encrypted_forward, suffix=current_suffix)
 
-        # 获取所有参与方前向传播的结果与目标之间的差值 d = Σ(W_Hj * X_Hj) + W_G * X_G - Y
+        # 获取所有参与方前向传播的结果与目标之间的差值 d = Σ(W_Hj * X_Hj) + W_G * X_G - Y，可以理解为全局 y 对应的梯度
         fore_gradient = self.fore_gradient_transfer.get(idx=0, suffix=current_suffix)
 
         # Host case, never fit-intercept
+        # 根据全局 y 的梯度计算 w 对应的梯度，需要为 fore_gradient * x
         unilateral_gradient = self.compute_gradient(data_instances, fore_gradient, False, need_average=False)
         return unilateral_gradient
 
@@ -334,7 +343,7 @@ class Host(HeteroGradientBase):
         if optimizer is not None:
             unilateral_gradient = optimizer.add_regular_to_grad(unilateral_gradient, model_weights)
 
-        # 根据差值计算反向传播梯度？
+        # 将加密梯度传递给 Arbiter 参与方进行解密
         optimized_gradient = self.update_gradient(unilateral_gradient, suffix=current_suffix)
         LOGGER.debug(f"Before return compute_gradient_procedure")
         return optimized_gradient
@@ -370,8 +379,11 @@ class Host(HeteroGradientBase):
         host_forward = self.fore_gradient_transfer.get(idx=0, suffix=suffix)
         return host_forward
 
+    # 使用 Arbiter 执行了梯度的解密
     def update_gradient(self, unilateral_gradient, suffix=tuple()):
+        # 将同态加密的梯度发送给 Arbiter
         self.unilateral_gradient_transfer.remote(unilateral_gradient, role=consts.ARBITER, idx=0, suffix=suffix)
+        # 获取 Arbiter 解密后的梯度
         optimized_gradient = self.unilateral_optim_gradient_transfer.get(idx=0, suffix=suffix)
         return optimized_gradient
 
@@ -484,3 +496,27 @@ class Arbiter(HeteroGradientBase):
                                                   role=consts.GUEST,
                                                   idx=0,
                                                   suffix=suffix)
+
+
+def compute_gradient(self, data_instances, fore_gradient, fit_intercept, need_average=True):
+        is_sparse = data_overview.is_sparse_data(data_instances)
+
+        LOGGER.debug("Use apply partitions")
+        feat_join_grad = data_instances.join(fore_gradient,
+                                             lambda d, g: (d.features, g))
+        f = functools.partial(self.__apply_cal_gradient,
+                              fixed_point_encoder=self.fixed_point_encoder,
+                              is_sparse=is_sparse)
+        gradient_sum = feat_join_grad.applyPartitions(f)
+        gradient_sum = gradient_sum.reduce(lambda x, y: x + y)
+        if fit_intercept:
+            # bias_grad = np.sum(fore_gradient)
+            bias_grad = fore_gradient.reduce(lambda x, y: x + y)
+            gradient_sum = np.append(gradient_sum, bias_grad)
+
+        if need_average:
+            gradient = gradient_sum / data_instances.count()
+        else:
+            gradient = gradient_sum
+
+        return gradient

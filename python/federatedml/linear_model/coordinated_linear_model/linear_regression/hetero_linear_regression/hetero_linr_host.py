@@ -80,7 +80,7 @@ class HeteroLinRHost(HeteroLinRBase):
             batch_data_generator = self.batch_generator.generate_batch_data()
             batch_index = 0
             for batch_data in batch_data_generator:
-                # 获取反向传播的梯度
+                # 获取权重参数 w 反向传播的梯度
                 optim_host_gradient = self.gradient_loss_operator.compute_gradient_procedure(
                     batch_data,
                     self.cipher_operator,

@@ -103,6 +103,7 @@ class _Optimizer(object):
 
         return new_grad
 
+    # 输入 grad 为需要改变的部分，一般情况下直接相减即可
     def regularization_update(self, model_weights: LinearModelWeights, grad,
                               prev_round_weights: LinearModelWeights = None):
         # LOGGER.debug(f"In regularization_update, input model_weights: {model_weights.unboxed}")
@@ -112,6 +113,7 @@ class _Optimizer(object):
         elif self.penalty == consts.L2_PENALTY:
             model_weights = self._l2_updator(model_weights, grad)
         else:
+            # 直接减去需要变化的 grad, 然后构造新的权重参数
             new_vars = model_weights.unboxed - grad
             model_weights = LinearModelWeights(new_vars,
                                                model_weights.fit_intercept,
@@ -193,9 +195,12 @@ class _Optimizer(object):
 
         if not has_applied:
             grad = self.add_regular_to_grad(grad, model_weights)
+            # 根据原始的梯度计算需要变化的梯度，学习率已经乘上了
             delta_grad = self.apply_gradients(grad)
         else:
             delta_grad = grad
+
+        # 执行权重的调整，一般就是减去 delta_grad，获得新的权重参数
         model_weights = self.regularization_update(model_weights, delta_grad, prev_round_weights)
         return model_weights
 
